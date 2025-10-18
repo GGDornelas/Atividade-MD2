@@ -3,161 +3,258 @@
 #include <math.h>
 #include <string.h>
 
-/* mapa_pre */
-int mapa_pre(char simbolo) {
-    if (simbolo >= 'A' && simbolo <= 'Z') return 11 + (simbolo - 'A');
-    if (simbolo >= 'a' && simbolo <= 'z') return 11 + (simbolo - 'a');
-    if (simbolo == ' ') return 0;
+int mp_pre(char c);
+char mp_de(int c);
+long long mdc_ll(long long a, long long b);
+long long g_rho(long long x, long long n);
+long long f_rho(long long n);
+long long ler_n(const char *nome);
+long long inv_mod(long long a, long long m);
+long long esc_e(long long ph);
+long long pmod(long long m, long long e, long long n, long long ph);
+void etapa3(long long e, long long d, long long n, long long ph);
+int primo_ll(long long n);
+
+int mp_pre(char c) {
+    if (c >= 'A' && c <= 'Z') return 11 + (c - 'A');
+    if (c >= 'a' && c <= 'z') return 11 + (c - 'a');
+    if (c == ' ') return 0;
     return -1;
 }
 
-/* mapa_de */
-char mapa_de(int codigo) {
-    if (codigo == 0) return ' ';
-    return 'A' + (codigo - 11);
+char mp_de(int c) {
+    if (c == 0) return ' ';
+    return 'A' + (c - 11);
 }
 
-/* mdc */
-long long mdc(long long x, long long y) {
-    while (y != 0) {
-        long long resto = x % y;
-        x = y;
-        y = resto;
+long long mdc_ll(long long a, long long b) {
+    long long A = a, B = b;
+    printf("  -> Executando Euclides para mdc(%lld,%lld)\n", A, B);
+    int p = 0;
+    while (b != 0) {
+        long long r = a % b;
+        p++;
+        printf("     passo %d: %lld = (%lld * %lld) + %lld\n", p, a, a / b, b, r);
+        a = b;
+        b = r;
     }
-    return x;
+    printf("  -> Resultado final: mdc(%lld,%lld) = %lld\n", A, B, a);
+    return a;
 }
 
-/* g_pollard */
-long long g_pollard(long long valor, long long modulo) {
-    return (valor * valor + 1) % modulo;
+long long g_rho(long long x, long long n) {
+    long long x2 = x * x;
+    long long out = (x2 + 1) % n;
+    printf("     g(%lld) = (%lld^2 + 1) %% %lld = %lld\n", x, x, n, out);
+    return out;
 }
 
-/* fator_pollard */
-long long fator_pollard(long long numero) {
-    if (numero % 2 == 0) return 2;
-    long long a = 2, b = 2, d = 1;
+long long f_rho(long long n) {
+    if (n % 2 == 0) {
+        printf("  Observação: %lld é par — fator trivial = 2\n", n);
+        return 2;
+    }
+    long long x = 2, y = 2, d = 1;
+    int it = 0;
+    printf("\n  >>> Iniciando Pollard ρ para N = %lld\n", n);
+    printf("      semente x0 = 2\n");
     while (d == 1) {
-        a = g_pollard(a, numero);
-        b = g_pollard(g_pollard(b, numero), numero);
-        d = mdc(llabs(a - b), numero);
+        it++;
+        printf("\n    Iteração #%d\n", it);
+        x = g_rho(x, n);
+        long long t = g_rho(y, n);
+        y = g_rho(t, n);
+        long long diff = llabs(x - y);
+        printf("    |x - y| = |%lld - %lld| = %lld\n", x, y, diff);
+        d = mdc_ll(diff, n);
+        if (d == 1) printf("    sem divisor não-trivial nesta rodada.\n");
+        else if (d == n) {
+            printf("    gcd == n -> falha na tentativa (tente outro N).\n");
+            return -1;
+        } else {
+            printf("    divisor encontrado: %lld\n", d);
+            break;
+        }
     }
     return d;
 }
 
-/* ler_N */
-long long ler_N(const char *texto) {
-    long long valor;
-    int valido = 0;
+long long ler_n(const char *nome) {
+    long long n;
+    int ok = 0;
     do {
-        if (scanf("%lld", &valor) != 1) {
-            while (getchar() != '\n')
-                ;  // limpa buffer (corpo vazio intencional)
+        printf("Digite %s (produto de primos distintos entre 100 e 9999): ", nome);
+        if (scanf("%lld", &n) != 1) {
+            printf("  Entrada inválida — insira apenas números.\n");
+            while (getchar() != '\n');
             continue;
         }
-        if (valor >= 100 && valor <= 9999) valido = 1;
-    } while (!valido);
-    return valor;
+        if (n < 100 || n > 9999) printf("  Valor fora do intervalo. Tente novamente.\n");
+        else ok = 1;
+    } while (!ok);
+    return n;
 }
 
-/* inverso_extenso */
-long long inverso_extenso(long long base, long long mod) {
-    long long r1 = base, r2 = mod, s1 = 1, s2 = 0, t1 = 0, t2 = 1;
+long long inv_mod(long long a, long long m) {
+    long long r1 = a, r2 = m, s1 = 1, s2 = 0, t1 = 0, t2 = 1;
+    int it = 0;
+    printf("\n  >>> Iniciando Euclides Estendido para inverso de %lld mod %lld\n", a, m);
     while (r2 != 0) {
+        it++;
         long long q = r1 / r2;
         long long r = r1 - q * r2;
         long long s = s1 - q * s2;
         long long t = t1 - q * t2;
-        r1 = r2; r2 = r; s1 = s2; s2 = s; t1 = t2; t2 = t;
+        printf("    iter %d: q=%lld, r=%lld, s=%lld, t=%lld\n", it, q, r, s, t);
+        r1 = r2; r2 = r;
+        s1 = s2; s2 = s;
+        t1 = t2; t2 = t;
     }
-    if (r1 != 1) return -1;
-    if (s1 < 0) s1 += mod;
-    return s1;
+    if (r1 != 1) {
+        printf("  Não existe inverso (mdc != 1). mdc=%lld\n", r1);
+        return -1;
+    }
+    long long inv = s1;
+    if (inv < 0) inv += m;
+    printf("  Inverso modular: %lld (verificação: (%lld * %lld) %% %lld = %lld)\n", inv, a, inv, m, (a * inv) % m);
+    return inv;
 }
 
-/* escolherE */
-long long escolherE(long long fi) {
-    for (long long expo = 2; expo < fi; expo++)
-        if (mdc(expo, fi) == 1) return expo;
+long long esc_e(long long ph) {
+    printf("\n  Buscando expoente público E coprimo com φ=%lld...\n", ph);
+    for (long long e = 2; e < ph; e++) {
+        if (mdc_ll(e, ph) == 1) {
+            printf("  -> E escolhido = %lld\n", e);
+            return e;
+        }
+    }
     return -1;
 }
 
-/* powmod */
-long long powmod(long long base, long long expoente, long long mod, long long fi) {
-    long long resultado = 1, b = base % mod, e = expoente;
-    while (e > 0) {
-        if (e & 1) resultado = (resultado * b) % mod;
-        b = (b * b) % mod;
-        e >>= 1;
+long long pmod(long long m, long long e, long long n, long long ph) {
+    printf("\n  Calculando %lld^%lld (mod %lld)\n", m, e, n);
+    if (m % n == 0) {
+        printf("   M é múltiplo de n -> resultado 0.\n");
+        return 0;
     }
-    return resultado;
+    long long exp = e;
+    if (mdc_ll(m, n) == 1) {
+        if (ph != n - 1) {
+            printf("   Aplicando Teorema de Euler: reduzir expoente modulo φ(%lld)=%lld\n", n, ph);
+            exp = e % ph;
+            printf("   expo reduzido = %lld mod %lld = %lld\n", e, ph, exp);
+        } else {
+            printf("   Aplicando Pequeno Teorema de Fermat: n é primo\n");
+            exp = e % (n - 1);
+            printf("   expo reduzido = %lld mod %lld = %lld\n", e, (n - 1), exp);
+        }
+    } else {
+        printf("   Aplicando redução pelo Algoritmo da Divisão Euclidiana\n");
+        exp = e % (n - 1);
+        printf("   expo reduzido = %lld mod %lld = %lld\n", e, (n - 1), exp);
+    }
+    long long r = 1, b = m % n, e1 = exp;
+    while (e1 > 0) {
+        if (e1 & 1) {
+            long long a1 = r;
+            r = (r * b) % n;
+            printf("    multiplica: (%lld * %lld) mod %lld = %lld\n", a1, b, n, r);
+        }
+        long long b1 = b;
+        b = (b * b) % n;
+        e1 >>= 1;
+        printf("    base^2: (%lld^2) mod %lld = %lld, expo agora = %lld\n", b1, n, b, e1);
+    }
+    printf("   -> Resultado: %lld\n", r);
+    return r;
 }
 
-/* etapa3_processa */
-void etapa3_processa(long long expoente_pub, long long expoente_priv, long long modulo, long long fi) {
-    char texto[1024];
-    while (getchar() != '\n')
-        ; // limpa resto da linha
-    fgets(texto, sizeof(texto), stdin);
-
-    int blocos[1024], tam = 0;
-    char minusculo[1024];
-    char original[1024];
-
-    for (int i = 0; texto[i] != '\0' && texto[i] != '\n'; i++) {
-        int cod = mapa_pre(texto[i]);
-        if (cod == -1) continue;
-        blocos[tam] = cod;
-        original[tam] = texto[i];
-        minusculo[tam] = (texto[i] >= 'a' && texto[i] <= 'z') ? 1 : 0;
-        tam++;
+void etapa3(long long e, long long d, long long n, long long ph) {
+    printf("\n--- Etapa 3: Criptografia / Descriptografia ---\n");
+    char msg[1024];
+    printf("Escreva a mensagem (somente letras e espaços): ");
+    while (getchar() != '\n');
+    fgets(msg, sizeof(msg), stdin);
+    int bl[1024]; char org[1024]; char min[1024]; int t = 0;
+    for (int i = 0; msg[i] != '\0' && msg[i] != '\n'; i++) {
+        int cd = mp_pre(msg[i]);
+        if (cd == -1) continue;
+        bl[t] = cd; org[t] = msg[i];
+        min[t] = (msg[i] >= 'a' && msg[i] <= 'z') ? 1 : 0;
+        t++;
     }
-
-    int largura = 1;
-    for (long long tmp = modulo - 1; largura = 0, tmp > 0; largura++, tmp /= 10);
-
-    long long cifrado[1024];
-    for (int i = 0; i < tam; i++) cifrado[i] = powmod(blocos[i], expoente_pub, modulo, fi);
-
-    char decod[tam + 1];
-    for (int i = 0; i < tam; i++) {
-        long long msg = powmod(cifrado[i], expoente_priv, modulo, fi);
-        char letra = mapa_de((int)msg);
-        if (msg != 0 && minusculo[i]) letra += (char)('a' - 'A');
-        decod[i] = letra;
+    int w = 1;
+    { long long tmp = n - 1; w = 0; do { w++; tmp /= 10; } while (tmp > 0); }
+    long long cf[1024];
+    printf("\n-- Criptografando cada bloco (2 dígitos) --\n");
+    for (int i = 0; i < t; i++) {
+        printf("\n Bloco M = %02d  (caractere '%c')\n", bl[i], org[i]);
+        cf[i] = pmod(bl[i], e, n, ph);
+        if (cf[i] == 0) printf("  Cifrado C = %02lld\n", cf[i]);
+        else printf("  Cifrado C = %0*lld\n", w, cf[i]);
     }
-    decod[tam] = '\0';
+    printf("\nMensagem cifrada (blocos):\n");
+    for (int i = 0; i < t; i++) {
+        if (cf[i] == 0) printf("%02lld ", cf[i]);
+        else printf("%0*lld ", w, cf[i]);
+    }
+    printf("\n");
+    printf("\n-- Decifrando --\n");
+    char dec[t + 1];
+    for (int i = 0; i < t; i++) {
+        if (cf[i] == 0) printf("\n Bloco C = %02lld\n", cf[i]);
+        else printf("\n Bloco C = %0*lld\n", w, cf[i]);
+        long long M = pmod(cf[i], d, n, ph);
+        char l = mp_de((int)M);
+        if (M != 0 && min[i]) l = (char)(l + ('a' - 'A'));
+        printf("  M recuperado = %02lld -> '%c'\n", M, l);
+        dec[i] = l;
+    }
+    dec[t] = '\0';
+    printf("\nMensagem decodificada: %s\n", dec);
 }
 
-/* eh_primo */
-int eh_primo(long long valor) {
-    if (valor < 2) return 0;
-    if (valor % 2 == 0) return valor == 2;
-    for (long long i = 3; i * i <= valor; i += 2)
-        if (valor % i == 0) return 0;
+int primo_ll(long long n) {
+    if (n < 2) return 0;
+    if (n % 2 == 0) return n == 2;
+    for (long long i = 3; i * i <= n; i += 2) if (n % i == 0) return 0;
     return 1;
 }
 
-/* main */
 int main(void) {
-    long long num1 = ler_N("N1");
-    long long num2 = ler_N("N2");
-
-    long long fator1 = fator_pollard(num1);
-    long long outro1 = (fator1 != 0) ? (num1 / fator1) : 0;
-    if (fator1 <= 1 || outro1 <= 1 || fator1 == outro1 || !eh_primo(fator1) || !eh_primo(outro1)) return 1;
-
-    long long fator2 = fator_pollard(num2);
-    long long outro2 = (fator2 != 0) ? (num2 / fator2) : 0;
-    if (fator2 <= 1 || outro2 <= 1 || fator2 == outro2 || !eh_primo(fator2) || !eh_primo(outro2)) return 1;
-
-    long long modulo = fator1 * fator2;
-    long long fi = (fator1 - 1) * (fator2 - 1);
-
-    long long expoente_pub = escolherE(fi);
-    if (expoente_pub == -1) return 1;
-    long long expoente_priv = inverso_extenso(expoente_pub, fi);
-    if (expoente_priv == -1) return 1;
-
-    etapa3_processa(expoente_pub, expoente_priv, modulo, fi);
+    printf("=== Etapa 1: Fatoração interativa (ρ de Pollard) ===\n");
+    printf("Nota: insira números resultantes do produto de primos distintos.\n\n");
+    long long n1 = ler_n("N1");
+    long long n2 = ler_n("N2");
+    long long p1 = f_rho(n1);
+    if (p1 == -1) { printf("\nErro na fatoração de N1. Encerrando.\n"); return 1; }
+    long long cf1 = (p1 != 0) ? (n1 / p1) : 0;
+    if (p1 <= 1 || cf1 <= 1 || p1 == cf1 || !primo_ll(p1) || !primo_ll(cf1)) {
+        printf("\n[Validação] N1 não satisfaz a condição (primos distintos). Fatores detectados: %lld e %lld\n", p1, cf1);
+        return 1;
+    }
+    long long q1 = f_rho(n2);
+    if (q1 == -1) { printf("\nErro na fatoração de N2. Encerrando.\n"); return 1; }
+    long long cf2 = (q1 != 0) ? (n2 / q1) : 0;
+    if (q1 <= 1 || cf2 <= 1 || q1 == cf2 || !primo_ll(q1) || !primo_ll(cf2)) {
+        printf("\n[Validação] N2 não satisfaz a condição (primos distintos). Fatores detectados: %lld e %lld\n", q1, cf2);
+        return 1;
+    }
+    printf("\n=== Fatores finais obtidos ===\n");
+    printf("p (de N1) = %lld\n", p1);
+    printf("q (de N2) = %lld\n", q1);
+    printf("\n=== Etapa 2: Geração das chaves RSA ===\n");
+    long long nn = p1 * q1;
+    printf("Módulo n = p * q = %lld * %lld = %lld\n", p1, q1, nn);
+    long long ph = (p1 - 1) * (q1 - 1);
+    printf("Totiente φ(n) = (p-1)*(q-1) = %lld\n", ph);
+    long long en = esc_e(ph);
+    if (en == -1) { printf("Não foi possível escolher E. Abortando.\n"); return 1; }
+    long long dn = inv_mod(en, ph);
+    if (dn == -1) { printf("Não existe inverso modular para E. Abortando.\n"); return 1; }
+    printf("\n--- Par de chaves ---\n");
+    printf("Chave pública  (n, e) = (%lld, %lld)\n", nn, en);
+    printf("Chave privada (n, d) = (%lld, %lld)\n", nn, dn);
+    etapa3(en, dn, nn, ph);
     return 0;
 }
